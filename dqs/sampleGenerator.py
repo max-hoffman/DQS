@@ -1,25 +1,63 @@
 import numpy as np
 from math import factorial
 import random as rd
+from scipy import integrate
 
 def generateTrainingSample(functionCount, maxOrder, maxElements, coefficientMagnitude):
+  """
+  Randomly generate the data and solution oracle for a dynamical 
+  system with the following constraints:
+
+  Parameters
+    ----------
+    - functionCount : int
+        - Number of functions in dynamical sytem
+
+    - maxOrder : int
+        - Highest order for the equations generated
+        - ex: y = x^2 => order is two
+
+    - maxElements : int
+        - Maximum number of elements in each equation
+        - ex: y = ax + b => two elements
+
+    - coefficientMagnitude : int
+        - Coefficients for elements will be between +-magnitude
+        - ex: y = 2x => magnitude for x is two
+
+  Returns
+    -------
+    - data : np.array
+        - Dynamical system equations => solved ODE => henkel matrix => SVD => recovered time-series
+
+    - xiOracle : np.array
+        - correct sparsify system
+    
+
+  """
   rd.seed()
 
   randomSystem = _generateSystemString(functionCount, maxOrder, maxElements, coefficientMagnitude)
   xiOracle = _marshalXi(randomSystem, maxOrder, functionCount)
   systemODE = _marshallDynamicalSystem(randomSystem, xiOracle)
-
-  # TODO : solve ODE to get data points
-  timeStart = .01
-  timeStop = 100
-  time = np.linspace(timeStart, timeStop, num = numberOfPoints)
-  initialCond = np.zeros(functionCount)
-  initialCond = map((lambda x: x + rd.randint(-coefficientMagnitude, coefficientMagnitude)), initialCond)
-
-  data, infodict = integrate.odeint(systemODE, initialCond, time, full_output=1)
-  print( infodict['message'])
+  data = _solveODEWithRandomInit(systemODE)
 
   return data, xiOracle
+
+def _solveODEWithRandomInit():
+  timeStart = .01
+  timeStop = 100
+  numberOfPoints= 10000
+  time = np.linspace(timeStart, timeStop, num = numberOfPoints)
+
+  initialCond = _randomInitialConditions(functionCount, coefficientMagnitude)
+  data, infodict = integrate.odeint(systemODE, initialCond, time, full_output=1)
+  print( infodict['message'])
+  return data
+
+def _randomInitialConditions(dimensions, magnitude):
+  initialCond = np.zeros(dimensions)
+  return map((lambda x: x + rd.randint(-magnitude, magnitude)), initialCond)
 
 def _marshallDynamicalSystem(systemStrings, xi):
 
@@ -37,7 +75,8 @@ def _marshallDynamicalSystem(systemStrings, xi):
         vals = string["val"]
         coef = string["coefficient"]
         dX[funcIdx] += computeProduct(X, vals, coef)
-  
+    return dX
+
   return dynamicalSystem
 
 def _generateSystemString(functionCount, maxOrder, maxElements, coefficientMagnitude):
@@ -47,7 +86,6 @@ def _generateSystemString(functionCount, maxOrder, maxElements, coefficientMagni
   for functionIdx in range(functionCount):
     elementCount = rd.randint(1, maxElements)
     newFunction = []
-    # print(elementCount, newFunction)
     for elementIdx in range(elementCount):
       elString = ""
       order = rd.randint(1, maxOrder)
@@ -70,14 +108,11 @@ def _sumOfComboWithReplacement(selectN, fromOptions):
     count += factorial(fromOptions+i-1) / (factorial(i) * factorial(fromOptions-1))
   return int(count)
 
-
 def _stringSum(string):
   "Helper function to condense function string to numerical representation"
   chars = list(string)
   ints = list(map(lambda x: (int(format(ord(x), "x"))-61), chars))
-  return reduce(
-    (lambda accum, curr: accum + curr), ints, 0
-  )
+  return reduce((lambda accum, curr: accum + curr), ints, 0)
 
 def _indexForString(string, modes):
   "Returns the Xi index for a given string"
