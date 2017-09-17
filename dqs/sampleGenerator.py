@@ -2,8 +2,9 @@ import numpy as np
 from math import factorial
 import random as rd
 from scipy import integrate
+from initializeSINDy import *
 
-def generateTrainingSample(functionCount, maxOrder, maxElements, coefficientMagnitude):
+def generateTrainingSample(functionCount, maxOrder, maxElements, coefficientMagnitude, henkelRows=10, timeStart=.01, timeStop=100, timeSteps=10000):
   """
   Randomly generate the data and solution oracle for a dynamical 
   system with the following constraints:
@@ -40,15 +41,13 @@ def generateTrainingSample(functionCount, maxOrder, maxElements, coefficientMagn
   randomSystem = _generateSystemString(functionCount, maxOrder, maxElements, coefficientMagnitude)
   xiOracle = _marshalXi(randomSystem, maxOrder, functionCount)
   systemODE = _marshallDynamicalSystem(randomSystem, xiOracle)
-  data = _solveODEWithRandomInit(systemODE)
+  data = _solveODEWithRandomInit(systemODE, functionCount, coefficientMagnitude, timeStart, timeStop, timeSteps)
 
   return data, xiOracle
-
-def _solveODEWithRandomInit():
-  timeStart = .01
-  timeStop = 100
-  numberOfPoints= 10000
-  time = np.linspace(timeStart, timeStop, num = numberOfPoints)
+  
+  
+def _solveODEWithRandomInit(systemODE, functionCount, coefficientMagnitude, timeStart, timeStop, timeSteps):
+  time = np.linspace(timeStart, timeStop, num = timeSteps)
 
   initialCond = _randomInitialConditions(functionCount, coefficientMagnitude)
   data, infodict = integrate.odeint(systemODE, initialCond, time, full_output=1)
