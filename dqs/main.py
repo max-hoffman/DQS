@@ -1,11 +1,7 @@
-import numpy as np
-from scipy import integrate
-from scipy.linalg import svd
-import matplotlib.pyplot as plt
-import pylab
-
 from initializeSINDy import *
 from sampleGenerator import generateTrainingSample
+import matplotlib.pyplot as plt
+import pylab
 
 functionCount = 3
 maxOrder = 3
@@ -16,6 +12,3 @@ dt = .001
 
 data, xiOracle = generateTrainingSample(functionCount, maxOrder, maxElements, coefficientMagnitude)
 V, dX, theta, norms = initializeSINDy(data[:, 0], henkelRows, functionCount, maxOrder, dt)
-
-
-
