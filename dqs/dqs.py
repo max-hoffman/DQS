@@ -19,7 +19,7 @@ from sampleGenerator import generateTrainingSample
 # print("resid", resid)
 
 class DQSAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, sesh, logs_path):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
@@ -28,9 +28,7 @@ class DQSAgent:
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
-        self._build_model()
-    
-    def _build_model(self):
+
         with tf.name_scope('input'):
             x = tf.placeholder(tf.float32, shape=[None, state_size])
             y_ = tf.placeholder(tf.float32, shape=[None, action_size])
@@ -41,53 +39,80 @@ class DQSAgent:
             b = tf.Variable(tf.zeros([53]))
 
         with tf.name_scope('softmax'):
-            # prediction
-            y = tf.nn.softmax(tf.matmul(x, W) + b)
+            # attach property for prediction outside of class
+            self.y = tf.nn.softmax(tf.matmul(x, W) + b)
 
-        with tf.name_scope('cross-entropy'):
-            squared_error = tf.reduce_sum(tf.squared_difference(y, y_))
+        with tf.name_scope('squared-error'):
+            squared_error = tf.reduce_sum(tf.squared_difference(self.y, y_))
 
         with tf.name_scope('train'):
             self.train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(squared_error)
 
         # track cost and accuracy
         tf.summary.scalar("cost", squared_error)
-
-        # merge summaries for convenience
         self.summary_op = tf.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
+        self.writer = tf.summary.FileWriter(logs_path , sesh.graph)
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
         return
     
-    def train(self, sesh, state, target, epoch, i):
-        # train the model given the current state, and the target Q function
-        # void return
-        _, summary = sesh.run([self.train_op, self.summary_op], feed_dict={ x: state, y_: target })
-        writer.add_summary(summary, epoch + i)
+    def train(self, sesh, state, target, epoch, dim):
+        _, summary = sesh.run([self.train_op, self.summary_op], feed_dict={ x: [state], y_: [target] })
+        self.writer.add_summary(summary, epoch + dim)
         if epoch % 5 == 0 & i == 0:
             print("Epoch: ", epoch)
         return
+
+    def _predict(self, state):
+        return tf.run(self.y, feed_dict={ x: [state] })
 
     def action(self, state, i):
         # get the value function(53x1) for state i (26x1)
         # find argmax
         # decide whether to take greedy action or not
-        # return the action
-        return
+        if np.random.rand() <= self.epsilon:
+            return random.randrange(self.action_size)
+        q = self._predict(state)
+        return np.argmax(q)
 
-    def step(self, action, i):
+    def step(self, state, action, oracle, theta, dX):
         # change the state according to the action
-        # lsq optimize the state again
-        # calculate reward based on whether done or not
-        # return next_state, reward, done
-        return
+        sparsify = True
+        next_state = state
 
-    def target(self, state, action, reward, i):
+        if action == 52:
+            return next_state, -1, False
+        elif action > self.state_size - 1:
+            action = action % state_size
+            sparsify = False
+
+        next_state[action][dim] = 0 if sparsify else 1
+        next_state = self._lsqr(next_state, theta, dX)
+        reward, done = self._reward(next_state, oracle)
+
+        return next_state, reward, done
+        
+    def _lsqr(self, state, theta, dX):
+        big_idx = abs(state[:]) > 0
+        temp_state, _, _, _ = np.linalg.lstsq(theta[:, big_idx], dX[:])
+        state[bigIdx] = temp_state
+        return state
+
+    def _reward(self, state, oracle):
+        states = abs(state[:]) > 0
+        oracles = abs(oracle[:]) > 0
+        if states == oracles:
+            return 0, True
+        return -1, False
+
+    def target(self, state, action, reward):
         # lookahead Q values
-        # find max Q in lookahead
+        target = self._predict(state).max()
+        sparsify = True
+        target[action] += reward
+        return target
 
-        return
 
     # def replay(self, batch_size, i):
     #     minibatch = random.sample(self.memory, batch_size)
@@ -104,53 +129,60 @@ class DQSAgent:
 
 
 if __name__ == "__main__":
-    with tf.Session() as sesh:
-        state_size = 26
-        action_Size = 53
-        function_count = 3
-        max_order = 3
-        max_elements = 3
-        coefficient_magnitude = 2
-        henkel_rows = 10
-        dt = .001
-        terminal = False
-        logs_path = '../logs'
+    (lambda _: 
+        with tf.Session() as sesh:
+            state_size = 26
+            action_Size = 53
+            function_count = 3
+            max_order = 3
+            max_elements = 3
+            coefficient_magnitude = 2
+            henkel_rows = 10
+            dt = .001
+            terminal = False
+            logs_path = '../logs'
 
-        agent = DQSAgent(state_size, action_size)
-        sesh.run(tf.initialize_all_variables())
-        writer = tf.summary.FileWriter(logs_path , sesh.graph)
+            agent = DQSAgent(state_size, action_size, sesh, logs_path)
+            sesh.run(tf.initialize_all_variables())
 
-        for epoch in range(training_epochs):
-            data, xiOracle = generateTrainingS_cmple(function_count, max_order, max_elements, coefficient_magnitude)
-            V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, max_order, dt)
-            xi, resid, rank, s = np.linalg.lstsq(theta, dX)
-            
-            for i in range(len(xi[0])):
+            for epoch in range(training_epochs):
+                data, xiOracle = generateTrainingS_cmple(function_count, max_order, max_elements, coefficient_magnitude)
+                V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, max_order, dt)
+                state, resid, rank, s = np.linalg.lstsq(theta, dX)
+                epochReward = 0
 
-                # take next action
-                action = agent.action(state, i)
+                for dim in range(len(state[0])):
 
-                # get reward (at new state)
-                next_state, reward, done = agent.step(action, i)
-                if done:
-                    continue
+                    # take next action
+                    action = agent.action(state[:, dim])
 
-                # get target value
-                target = agent.target(next_state, action, reward, i)
-                agent.remember(state, action, reward, next_state, done)
+                    # get reward (at new state)
+                    next_state, reward, done = agent.step(state[:, dim], action, oracle, theta, dX)
+                    epochReward += epochReward
+                    if done:
+                        continue
 
-                # train model
-                agent.train(sesh, state, target, epoch, i)
+                    # get target value
+                    target = agent.target(next_state, action, reward)
+                    agent.remember(state[:, dim], action, reward, next_state, done)
 
-                # experience replay
-                # if len(agent.memory) > batch_size:
-                #     agent.replay(batch_size, i)
-                
-                # update state for next round
-                state = next_state  
+                    # train model
+                    agent.train(sesh, state[:, dim], target, epoch, dim)
 
-        print("Accuracy: ", accuracy.eval(feed_dict={ x: mnist.test.images, y_: mnist.test.labels }))
+                    # experience replay
+                    # if len(agent.memory) > batch_size:
+                    #     agent.replay(batch_size, i)
+                    
+                    # update state for next round
+                    state[:, dim] = next_state  
+
+                # record reward at epoch end
+                summary = tf.Summary(value=[tf.Summary.Value(tag="reward", simple_value=epochReward)])
+                agent.writer.add_summary(summary, global_step=epoch)
+
+        # print("Accuracy: ", accuracy.eval(feed_dict={ x: mnist.test.images, y_: mnist.test.labels }))
         print("done")
+    )()
 
 # def trainDQS(epochs=1, epsilon=.9):
 #   function_count = 3
