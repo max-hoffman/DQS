@@ -1,3 +1,4 @@
 dqs/*.pyc
 .vscode/
 dqs/sindy/*.pyc
+logs/
