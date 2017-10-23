@@ -5,19 +5,6 @@ import numpy as np
 from collections import deque
 import tensorflow as tf
 
-
-# function_count = 3
-# max_order = 3
-# max_elements = 3
-# coefficient_magnitude = 2
-# henkel_rows = 10
-# dt = .001
-# data, xiOracle = generateTrainingSample(function_count, maxOrder, max_elements, coefficientMagnitude)
-# V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, maxOrder, dt)
-# xi, resid, rank, s = np.linalg.lstsq(theta, dX)
-# print("xi", xi)
-# print("resid", resid)
-
 class DQSAgent:
     def __init__(self, state_size, action_size, sesh, logs_path):
         self.state_size = state_size
@@ -45,13 +32,13 @@ class DQSAgent:
             self.y = tf.nn.softmax(tf.matmul(self.x, W) + b)
 
         with tf.name_scope('squared-error'):
-            squared_error = tf.reduce_sum(tf.squared_difference(self.y, self.y_))
+            self.squared_error = tf.reduce_sum(tf.squared_difference(self.y, self.y_))
 
         with tf.name_scope('train'):
-            self.train_op = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(squared_error)
+            self.train_op = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.squared_error)
 
         # track cost and accuracy
-        tf.summary.scalar("cost", squared_error)
+        tf.summary.scalar("error", self.squared_error)
         self.summary_op = tf.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
         self.writer = tf.summary.FileWriter(logs_path , self.sesh.graph)
 
@@ -62,6 +49,7 @@ class DQSAgent:
     def train(self, state, target, epoch, dim):
         _, summary = self.sesh.run([self.train_op, self.summary_op], feed_dict={ self.x: [state], self.y_: target })
         self.writer.add_summary(summary, epoch + dim)
+        self.training_step += 1
         if self.training_step % 50 == 0 & dim == 0:
             print("Epoch, step: ", epoch, self.training_step)
         return
