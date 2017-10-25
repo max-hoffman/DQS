@@ -24,10 +24,10 @@ if __name__ == "__main__":
           terminal = False
           logs_path = '../logs'
           epochReward = 0
+          epochIteration = 0
 
           agent = DQSAgent(state_size, action_size, sesh, logs_path)
           sesh.run(tf.initialize_all_variables())
-          summary = tf.Summary(value=[tf.Summary.Value(tag="reward", simple_value=epochReward)])
 
           for epoch in range(training_epochs):
               data, oracle = generateTrainingSample(function_count, max_order, max_elements, coefficient_magnitude)
@@ -35,6 +35,7 @@ if __name__ == "__main__":
               V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, max_order, dt)
               state, resid, rank, s = np.linalg.lstsq(theta, dX)
               epochReward = 0
+              epochIteration = 0
 
               for dim in range(len(state[0])):
 
@@ -44,6 +45,7 @@ if __name__ == "__main__":
                   # get reward (at new state)
                   next_state, reward, done = agent.step(state[:, dim], action, oracle, theta, dX)
                   epochReward += reward
+                  epochIteration += 1
                   if done:
                       continue
 
@@ -52,7 +54,7 @@ if __name__ == "__main__":
                   agent.remember(state[:, dim], action, reward, next_state, done)
 
                   # train model
-                  agent.train(state[:, dim], target, epoch, dim)
+                  agent.train(state[:, dim], target, epochIteration, dim)
 
                   # experience replay
                   # if len(agent.memory) > batch_size:
@@ -62,7 +64,8 @@ if __name__ == "__main__":
                   state[:, dim] = next_state  
 
               # record reward at epoch end
-              agent.writer.add_summary(summary, global_step=epoch)
+              reward_summary = tf.Summary(value=[tf.Summary.Value(tag="reward", simple_value=epochReward)])
+              agent.writer.add_summary(reward_summary, global_step=epochIteration)
 
       # print("Accuracy: ", accuracy.eval(feed_dict={ x: mnist.test.images, y_: mnist.test.labels }))
       print("done")
