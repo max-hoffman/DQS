@@ -50,7 +50,7 @@ class DQSAgent:
         _, summary = self.sesh.run([self.train_op, self.summary_op], feed_dict={ self.x: [state], self.y_: target })
         self.writer.add_summary(summary, iter)
         self.training_step += 1
-        if self.training_step % 50 == 0 & dim == 0:
+        if self.training_step % 50 == 0:
             print("Epoch, step: ", epoch, self.training_step)
         return
 
