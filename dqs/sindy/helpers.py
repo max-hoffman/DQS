@@ -59,7 +59,7 @@ def normalize(inputData, dimensions):
   normalizedData = np.copy(inputData)
 
   for dim in range(dimensions):
-    newNorm = np.linalg.norm(inputData[:,dim], ord=2) # / len(inputData)
+    newNorm = np.linalg.norm(inputData[:,dim]) # / len(inputData)
     normalizedData[:, dim] = normalizedData[:, dim] / newNorm
     norms[dim] = newNorm
 

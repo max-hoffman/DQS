@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pylab
 import numpy as np
 import tensorflow as tf
+import time
 
 from initializeSINDy import initializeSINDy
 from sampleGenerator import generateTrainingSample
@@ -10,62 +11,73 @@ from dqs import DQSAgent
 
 
 if __name__ == "__main__":
-      with tf.Session() as sesh:
-          function_count = 3
-          max_order = 3
-          max_elements = 3
-          coefficient_magnitude = 2
-          henkel_rows = 10
-          dt = .001
+    with tf.Session() as sesh:
+        function_count = 3
+        max_order = 3
+        max_elements = 3
+        coefficient_magnitude = 2
+        henkel_rows = 10
+        dt = .001
 
-          state_size = 20
-          action_size = 41
-          training_epochs = 5
-          terminal = False
-          logs_path = '../logs'
-          epochReward = 0
-          epochIteration = 0
+        state_size = 20
+        action_size = 41
+        training_epochs = 5
+        terminal = False
+        logs_path = '../logs'
+        epochReward = 0
+        epochIteration = 0
 
-          agent = DQSAgent(state_size, action_size, sesh, logs_path)
-          sesh.run(tf.initialize_all_variables())
+        agent = DQSAgent(state_size, action_size, sesh, logs_path)
+        sesh.run(tf.initialize_all_variables())
 
-          for epoch in range(training_epochs):
-              data, oracle = generateTrainingSample(function_count, max_order, max_elements, coefficient_magnitude)
-              # TODO: fix that Nan/ Inf problem
-              V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, max_order, dt)
-              state, resid, rank, s = np.linalg.lstsq(theta, dX)
-              epochReward = 0
-              epochIteration = 0
+        for epoch in range(training_epochs):
+            start = int(round(time.time() * 1000))
+            now = int(round(time.time() * 1000))
+            data, oracle = generateTrainingSample(function_count, max_order, max_elements, coefficient_magnitude)
+            while (np.isnan(data).any() or np.ptp(data) > 100.0 or np.ptp(data) < 1 or now - start > 10000):
+                now = int(round(time.time() * 1000))
+                data, oracle = generateTrainingSample(function_count, max_order, max_elements, coefficient_magnitude)
 
-              for dim in range(len(state[0])):
+            V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, max_order, dt)
+            state, resid, rank, s = np.linalg.lstsq(theta, dX)
+            epochReward = 0
+            epochIteration = 0
+            done = False
 
-                  # take next action
-                  action = agent.action(state[:, dim])
+            for dim in range(len(state[0])):
+                while done == False:
 
-                  # get reward (at new state)
-                  next_state, reward, done = agent.step(state[:, dim], action, oracle, theta, dX)
-                  epochReward += reward
-                  epochIteration += 1
-                  if done:
-                      continue
+                    # take next action
+                    action = agent.action(state[:, dim])
+                    print("action", action)
 
-                  # get target value
-                  target = agent.target(next_state, action, reward, done)
-                  agent.remember(state[:, dim], action, reward, next_state, done)
+                    # get reward (at new state)
+                    next_state, reward, done = agent.step(state[:, dim], action, oracle, theta, dX)
+                    print("next state", next_state)
+                    epochReward += reward
+                    epochIteration += 1
+                    if done:
+                        continue
 
-                  # train model
-                  agent.train(state[:, dim], target, epochIteration, dim)
+                    # get target value
+                    target = agent.target(next_state, action, reward, done)
+                    print("target", target)
+                    agent.remember(state[:, dim], action, reward, next_state, done)
 
-                  # experience replay
-                  # if len(agent.memory) > batch_size:
-                  #     agent.replay(batch_size, i)
-                  
-                  # update state for next round
-                  state[:, dim] = next_state  
+                    # train model
+                    agent.train(state[:, dim], target, epochIteration, dim)
 
-              # record reward at epoch end
-              reward_summary = tf.Summary(value=[tf.Summary.Value(tag="reward", simple_value=epochReward)])
-              agent.writer.add_summary(reward_summary, global_step=epochIteration)
+                    # experience replay
+                    # if len(agent.memory) > batch_size:
+                    #     agent.replay(batch_size, i)
+                    
+                    # update state for next round
+                    state[:, dim] = next_state 
 
-      # print("Accuracy: ", accuracy.eval(feed_dict={ x: mnist.test.images, y_: mnist.test.labels }))
-      print("done")
+            # record reward at epoch end
+            # reward_summary = tf.Summary(value=[tf.Summary.Value(tag="reward", simple_value=epochReward)])
+            print("epoch, reward", epoch, epochReward)
+            # agent.writer.add_summary(reward_summary, global_step=epochIteration)
+
+    # print("Accuracy: ", accuracy.eval(feed_dict={ x: mnist.test.images, y_: mnist.test.labels }))
+    print("done")

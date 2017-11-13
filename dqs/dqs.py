@@ -29,7 +29,8 @@ class DQSAgent:
 
         with tf.name_scope('softmax'):
             # attach property for prediction outside of class
-            self.y = tf.nn.softmax(tf.matmul(self.x, W) + b)
+            # self.y = tf.nn.softmax(tf.matmul(self.x, W) + b)
+            self.y = tf.matmul(self.x, W) + b
 
         with tf.name_scope('squared-error'):
             self.squared_error = tf.reduce_sum(tf.squared_difference(self.y, self.y_))
@@ -96,6 +97,9 @@ class DQSAgent:
         # lookahead Q values
         # TODO: target dimensionality is 1x41 ; is this correct?
         target = self._predict(state)
+        print("target prediction", target)
+        print("target prediction shape", target.shape)
+        
         target[0][action] = reward if done else reward + target[0][action]
         return target
 
