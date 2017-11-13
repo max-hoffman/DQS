@@ -4,6 +4,7 @@ import pylab
 import numpy as np
 from collections import deque
 import tensorflow as tf
+import sys
 
 class DQSAgent:
     def __init__(self, state_size, action_size, sesh, logs_path):
@@ -27,7 +28,7 @@ class DQSAgent:
             W = tf.Variable(tf.zeros([state_size, action_size]))
             b = tf.Variable(tf.zeros([action_size]))
 
-        with tf.name_scope('softmax'):
+        with tf.name_scope('forward-pass'):
             # attach property for prediction outside of class
             # self.y = tf.nn.softmax(tf.matmul(self.x, W) + b)
             self.y = tf.matmul(self.x, W) + b
@@ -40,18 +41,22 @@ class DQSAgent:
 
         # track cost and accuracy
         tf.summary.scalar("error", self.squared_error)
+        tf.summary.histogram("weights", W)
+        tf.summary.histogram("biases", b)
         self.summary_op = tf.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
-        self.writer = tf.summary.FileWriter(logs_path , self.sesh.graph)
+        self.writer = tf.summary.FileWriter(logs_path , sesh.graph)
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
         return
     
-    def train(self, state, target, epoch, iter):
+    def train(self, state, target, epoch, iteration):
         _, summary = self.sesh.run([self.train_op, self.summary_op], feed_dict={ self.x: [state], self.y_: target })
-        self.writer.add_summary(summary, iter)
+        # print("summary", summary)
+        # print(self.writer)
+        self.writer.add_summary(summary, iteration)
         self.training_step += 1
-        if self.training_step % 50 == 0:
+        if self.training_step % 750 == 0:
             print("Epoch, step: ", epoch, self.training_step)
         return
 
@@ -97,12 +102,15 @@ class DQSAgent:
         # lookahead Q values
         # TODO: target dimensionality is 1x41 ; is this correct?
         target = self._predict(state)
-        print("target prediction", target)
-        print("target prediction shape", target.shape)
+        # print("target prediction", target)
+        # print("target prediction shape", target.shape)
         
         target[0][action] = reward if done else reward + target[0][action]
         return target
 
+    def kill(self):
+        self.writer.close()
+        sys.exit()
 
     # def replay(self, batch_size, i):
     #     minibatch = random.sample(self.memory, batch_size)

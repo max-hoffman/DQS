@@ -23,9 +23,9 @@ if __name__ == "__main__":
         action_size = 41
         training_epochs = 5
         terminal = False
-        logs_path = '../logs'
+        logs_path = 'logs'
         epochReward = 0
-        epochIteration = 0
+        iteration = 0
 
         agent = DQSAgent(state_size, action_size, sesh, logs_path)
         sesh.run(tf.initialize_all_variables())
@@ -41,7 +41,6 @@ if __name__ == "__main__":
             V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, max_order, dt)
             state, resid, rank, s = np.linalg.lstsq(theta, dX)
             epochReward = 0
-            epochIteration = 0
             done = False
 
             for dim in range(len(state[0])):
@@ -49,23 +48,23 @@ if __name__ == "__main__":
 
                     # take next action
                     action = agent.action(state[:, dim])
-                    print("action", action)
+                    # print("action", action)
 
                     # get reward (at new state)
                     next_state, reward, done = agent.step(state[:, dim], action, oracle, theta, dX)
-                    print("next state", next_state)
+                    # print("next state", next_state)
                     epochReward += reward
-                    epochIteration += 1
+                    iteration += 1
                     if done:
                         continue
 
                     # get target value
                     target = agent.target(next_state, action, reward, done)
-                    print("target", target)
+                    # print("target", target)
                     agent.remember(state[:, dim], action, reward, next_state, done)
 
                     # train model
-                    agent.train(state[:, dim], target, epochIteration, dim)
+                    agent.train(state[:, dim], target, epoch, iteration)
 
                     # experience replay
                     # if len(agent.memory) > batch_size:
@@ -74,6 +73,9 @@ if __name__ == "__main__":
                     # update state for next round
                     state[:, dim] = next_state 
 
+                    if iteration % 2000 == 0:
+                        print("current state", next_state)
+
             # record reward at epoch end
             # reward_summary = tf.Summary(value=[tf.Summary.Value(tag="reward", simple_value=epochReward)])
             print("epoch, reward", epoch, epochReward)
@@ -81,3 +83,4 @@ if __name__ == "__main__":
 
     # print("Accuracy: ", accuracy.eval(feed_dict={ x: mnist.test.images, y_: mnist.test.labels }))
     print("done")
+    agent.kill()
