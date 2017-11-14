@@ -71,7 +71,7 @@ if __name__ == "__main__":
                     #     agent.replay(batch_size, i)
                     
                     # update state for next round
-                    state[:, dim] = next_state 
+                    state[:, dim] = next_state
 
                     if iteration % 2000 == 0:
                         print("current state", next_state)

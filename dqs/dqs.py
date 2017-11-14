@@ -12,7 +12,7 @@ class DQSAgent:
         self.action_size = action_size
         self.memory = deque(maxlen=2000)
         self.gamma = 0.95    # discount rate
-        self.epsilon = 1.0  # exploration rate
+        self.epsilon = .1  # exploration rate
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
         self.learning_rate = 0.001
@@ -65,6 +65,10 @@ class DQSAgent:
 
     def action(self, state):
         if np.random.rand() <= self.epsilon:
+            # TODO: change this to pick the lowest one sometimes
+            return nonzero_argmin(state)
+            # return rd.randrange(self.action_size)
+        if np.random.rand() <= self.epsilon:
             return rd.randrange(self.action_size)
         q = self._predict(state)
         return np.argmax(q)
@@ -111,6 +115,16 @@ class DQSAgent:
     def kill(self):
         self.writer.close()
         sys.exit()
+
+def nonzero_argmin(array):
+    lowest_value = abs(array[0])
+    argmin = 0
+    for i in range(array.size):
+        new = abs(array[i])
+        if new < lowest_value and new != 0:
+            lowest_value = new
+            argmin = i
+    return argmin
 
     # def replay(self, batch_size, i):
     #     minibatch = random.sample(self.memory, batch_size)
