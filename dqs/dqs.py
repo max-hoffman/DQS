@@ -66,7 +66,9 @@ class DQSAgent:
     def action(self, state):
         if np.random.rand() <= self.epsilon:
             # TODO: change this to pick the lowest one sometimes
-            return nonzero_argmin(state)
+            if np.random.rand() <= .5:
+                return nonzero_argmin(state)
+            return nonzero_argmin(state) + state.shape[0] / 2 + 1
             # return rd.randrange(self.action_size)
         if np.random.rand() <= self.epsilon:
             return rd.randrange(self.action_size)

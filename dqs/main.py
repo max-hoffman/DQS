@@ -4,6 +4,7 @@ import pylab
 import numpy as np
 import tensorflow as tf
 import time
+import sys
 
 from initializeSINDy import initializeSINDy
 from sampleGenerator import generateTrainingSample
@@ -39,7 +40,9 @@ if __name__ == "__main__":
                 data, oracle = generateTrainingSample(function_count, max_order, max_elements, coefficient_magnitude)
 
             V, dX, theta, norms = initializeSINDy(data[:, 0], henkel_rows, function_count, max_order, dt)
-            state, resid, rank, s = np.linalg.lstsq(theta, dX)
+            # state, resid, rank, s = np.linalg.lstsq(theta, dX)
+            print("data, dX", data[14:, :].shape, dX.shape)
+            state, resid, rank, s = np.linalg.lstsq(theta, data[14:, :])
             epochReward = 0
             done = False
 
