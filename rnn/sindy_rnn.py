@@ -43,9 +43,10 @@ with tf.name_scope('forward-pass'):
 
     rnn_outputs, rnn_states = tf.nn.dynamic_rnn(cell, inputs, initial_state=initial_state)
 
-    final_projection = lambda x: layers.linear(x, num_outputs=OUTPUT_SIZE, activation_fn=None)
+    # final_projection = lambda x: layers.linear(x, num_outputs=OUTPUT_SIZE, activation_fn=None)
 
-    predicted_outputs = tf.map_fn(final_projection, rnn_outputs)
+    # predicted_outputs = tf.map_fn(final_projection, rnn_outputs)
+    predicted_outputs = layers.linear(rnn_outputs, num_outputs=OUTPUT_SIZE, activation_fn=None)
 
 with tf.name_scope('error'):
     mean_square_error = tf.reduce_mean(tf.squared_difference(predicted_outputs, outputs))
@@ -81,7 +82,8 @@ for epoch in range(EPOCHS):
         epoch_error += error
     epoch_error /= ITERATIONS_PER_EPOCH
     print("Epoch: %s, error: %.2f" % (epoch, epoch_error))
-
+    guess = session.run(predicted_outputs, feed_dict={ inputs: [example_data] })
+    print(guess[0][-1])
 writer.close()
     # valid_accuracy = session.run(accuracy, {
     #     inputs:  valid_x,
